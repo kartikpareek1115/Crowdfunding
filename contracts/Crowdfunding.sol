@@ -126,4 +126,71 @@ contract CrowdfundingDapp {
         
         emit RefundIssued(_campaignId, msg.sender, contributionAmount);
     }
+    
+    /**
+     * @dev Allows campaign creators to update campaign details before deadline
+     * @param _campaignId ID of the campaign
+     * @param _newTitle New title for the campaign
+     * @param _newDescription New description for the campaign
+     */
+    function updateCampaignDetails(
+        uint256 _campaignId,
+        string memory _newTitle,
+        string memory _newDescription
+    ) public {
+        Campaign storage campaign = campaigns[_campaignId];
+        
+        require(msg.sender == campaign.creator, "Only campaign creator can update details");
+        require(block.timestamp < campaign.deadline, "Campaign has ended");
+        require(!campaign.completed, "Campaign is already completed");
+        
+        campaign.title = _newTitle;
+        campaign.description = _newDescription;
+        
+        emit CampaignUpdated(_campaignId, _newTitle, _newDescription);
+    }
+    
+    /**
+     * @dev Allows users to get campaign contribution statistics
+     * @param _campaignId ID of the campaign
+     * @param _contributor Address of the contributor
+     * @return userContribution Amount contributed by the specific address
+     * @return totalRaised Total amount raised for the campaign
+     * @return percentageOfGoal Percentage of funding goal reached (0-100)
+     * @return remainingTime Time left until campaign deadline (in seconds)
+     */
+    function getCampaignStats(uint256 _campaignId, address _contributor) 
+        public 
+        view 
+        returns (
+            uint256 userContribution,
+            uint256 totalRaised,
+            uint256 percentageOfGoal,
+            uint256 remainingTime
+        ) 
+    {
+        Campaign storage campaign = campaigns[_campaignId];
+        
+        userContribution = campaign.contributions[_contributor];
+        totalRaised = campaign.totalFunds;
+        
+        // Calculate percentage of goal reached (scaled to avoid floating point)
+        if (campaign.goal > 0) {
+            percentageOfGoal = (campaign.totalFunds * 100) / campaign.goal;
+        } else {
+            percentageOfGoal = 0;
+        }
+        
+        // Calculate remaining time
+        if (block.timestamp < campaign.deadline) {
+            remainingTime = campaign.deadline - block.timestamp;
+        } else {
+            remainingTime = 0;
+        }
+        
+        return (userContribution, totalRaised, percentageOfGoal, remainingTime);
+    }
+    
+    // Additional event for campaign updates
+    event CampaignUpdated(uint256 campaignId, string newTitle, string newDescription);
 }
